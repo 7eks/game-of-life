@@ -17,7 +17,7 @@ gol/
 ├── gol.c           — implementazione logica pura (no dipendenze esterne)
 ├── render.h        — interfaccia astratta RenderBackend
 ├── render.c        — implementazione backend ncurses
-├── main.c          — entry point, ciclo principale, prompt dimensioni
+├── main.c          — entry point, parsing CLI (-r, -c, -h), ciclo principale
 ├── README.md       — documentazione utente
 └── AGENTS.md       — questo file
 ```
@@ -29,7 +29,7 @@ gol/
 | `gol.h` / `gol.c` | Allocazione, step, random, clear della board | stdlib, string.h, time.h |
 | `render.h` | Interfaccia `RenderBackend` (function pointers) | stdint.h |
 | `render.c` | Implementazione ncurses del backend (barra velocità 5 livelli, info in 2 righe) | ncurses.h, stdlib.h |
-| `main.c` | Prompt dimensioni, ciclo principale, input handling | gol.h, render.h, ncurses.h, stdio.h, stdlib.h, unistd.h |
+| `main.c` | Parsing opzioni CLI (`-r`, `-c`, `-h`), fallback prompt interattivo, ciclo principale, input handling | gol.h, render.h, ncurses.h, stdio.h, stdlib.h, unistd.h |
 
 ## Interfaccia RenderBackend (da citare)
 

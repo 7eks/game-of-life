@@ -36,12 +36,26 @@ make run
 ./gol
 ```
 
+È possibile specificare le dimensioni della griglia direttamente da riga di comando:
+
+```bash
+./gol -r 30 -c 60   # 30 righe, 60 colonne
+./gol -r 10        # 10 righe, 40 colonne (default)
+./gol -c 80        # 20 righe (default), 80 colonne
+./gol -h           # Mostra aiuto
+```
+
+### Opzioni CLI
+
+| Opzione | Descrizione |
+|---------|------------|
+| `-r ROWS` | Numero di righe (min: 5, default: 20) |
+| `-c COLS` | Numero di colonne (min: 5, default: 40) |
+| `-h` | Mostra aiuto |
+
+Se le dimensioni non vengono fornite via CLI, viene richiesto un prompt interattivo.
+
 ## Utilizzo
-
-All'avvio viene chiesto di inserire:
-
-1. **Numero di righe** (minimo 5, default 20)
-2. **Numero di colonne** (minimo 5, default 40)
 
 La griglia viene randomizzata automaticamente e la simulazione parte.
 

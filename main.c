@@ -6,7 +6,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int main(void)
+static void print_usage(const char *prog)
+{
+    fprintf(stderr,
+            "Uso: %s [OPTIONS]\n"
+            "Options:\n"
+            "  -r ROWS   Numero di righe (min: 5, default: 20)\n"
+            "  -c COLS   Numero di colonne (min: 5, default: 40)\n"
+            "  -h        Mostra aiuto\n",
+            prog);
+}
+
+int main(int argc, char *argv[])
 {
     const RenderBackend *backend = ncurses_backend();
     if (!backend) {
@@ -14,31 +25,72 @@ int main(void)
         return 1;
     }
 
-    /* --- Prompt dimensioni --- */
-    mvprintw(0, 0, "Game of Life - Conway\n");
-    mvprintw(2, 0, "Inserisci numero di righe (min: 5, default: 20): ");
-    echo();
-    curs_set(1);
-    int rows = 20;
-    scanw("%d", &rows);
-    curs_set(0);
-    noecho();
+    /* --- Parse opzioni CLI --- */
+    int rows = -1;
+    int cols = -1;
+
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] != '-')
+            continue;
+        switch (argv[i][1]) {
+        case 'r':
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Errore: -r richiede un argomento\n");
+                print_usage(argv[0]);
+                return 1;
+            }
+            rows = (int)strtol(argv[++i], NULL, 10);
+            break;
+        case 'c':
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Errore: -c richiede un argomento\n");
+                print_usage(argv[0]);
+                return 1;
+            }
+            cols = (int)strtol(argv[++i], NULL, 10);
+            break;
+        case 'h':
+            print_usage(argv[0]);
+            return 0;
+        default:
+            fprintf(stderr, "Errore: opzione sconosciuta '%s'\n", argv[i]);
+            print_usage(argv[0]);
+            return 1;
+        }
+    }
+
+    /* --- Prompt interattivo se dimensioni non fornite --- */
+    if (rows < 0 || cols < 0) {
+        mvprintw(0, 0, "Game of Life - Conway\n");
+        if (rows < 0) {
+            mvprintw(2, 0, "Inserisci numero di righe (min: 5, default: 20): ");
+            echo();
+            curs_set(1);
+            rows = 20;
+            scanw("%d", &rows);
+            curs_set(0);
+            noecho();
+            if (rows < 5)
+                rows = 20;
+        }
+        if (cols < 0) {
+            mvprintw(4, 0, "Inserisci numero di colonne (min: 5, default: 40): ");
+            echo();
+            curs_set(1);
+            cols = 40;
+            scanw("%d", &cols);
+            curs_set(0);
+            noecho();
+            if (cols < 5)
+                cols = 40;
+        }
+        clear();
+    }
 
     if (rows < 5)
         rows = 20;
-
-    mvprintw(4, 0, "Inserisci numero di colonne (min: 5, default: 40): ");
-    echo();
-    curs_set(1);
-    int cols = 40;
-    scanw("%d", &cols);
-    curs_set(0);
-    noecho();
-
     if (cols < 5)
         cols = 40;
-
-    clear();
 
     /* --- Crea board --- */
     GolBoard *board = gol_create(rows, cols);
