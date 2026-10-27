@@ -2,6 +2,8 @@
 #include "gol.h"
 #include "render.h"
 #include <ncurses.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,6 +17,20 @@ static void print_usage(const char *prog)
             "  -c COLS   Numero di colonne (min: 5, default: 40)\n"
             "  -h        Mostra aiuto\n",
             prog);
+}
+
+/* Converte un argomento CLI in int, controllando l'overflow.
+   Restituisce 0 in caso di successo, -1 in caso di errore (messaggio gia' stampato). */
+static int parse_int_arg(const char *arg, const char *opt, int *out)
+{
+    errno = 0;
+    long v = strtol(arg, NULL, 10);
+    if (errno == ERANGE || v < INT_MIN || v > INT_MAX) {
+        fprintf(stderr, "Errore: valore fuori range per %s: '%s'\n", opt, arg);
+        return -1;
+    }
+    *out = (int)v;
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -39,7 +55,10 @@ int main(int argc, char *argv[])
                 print_usage(argv[0]);
                 return 1;
             }
-            rows = (int)strtol(argv[++i], NULL, 10);
+            if (parse_int_arg(argv[++i], "-r", &rows) != 0) {
+                print_usage(argv[0]);
+                return 1;
+            }
             break;
         case 'c':
             if (i + 1 >= argc) {
@@ -47,7 +66,10 @@ int main(int argc, char *argv[])
                 print_usage(argv[0]);
                 return 1;
             }
-            cols = (int)strtol(argv[++i], NULL, 10);
+            if (parse_int_arg(argv[++i], "-c", &cols) != 0) {
+                print_usage(argv[0]);
+                return 1;
+            }
             break;
         case 'h':
             print_usage(argv[0]);
@@ -106,18 +128,19 @@ int main(int argc, char *argv[])
 
     /* --- Controlla che la griglia entri nel terminale --- */
     if (rows > max_rows || cols > max_cols) {
+        /* cleanup prima di stampare: altrimenti il testo si mescola ai codici di escape */
+        backend->cleanup(ctx);
         fprintf(stderr,
                 "Errore: griglia troppo grande (%dx%d) per il terminale (%dx%d)\n",
                 rows, cols, max_rows, max_cols);
-        backend->cleanup(ctx);
         return 1;
     }
 
     /* --- Crea board --- */
     GolBoard *board = gol_create(rows, cols);
     if (!board) {
-        fprintf(stderr, "Errore: allocazione board fallita\n");
         backend->cleanup(ctx);
+        fprintf(stderr, "Errore: allocazione board fallita\n");
         return 1;
     }
 

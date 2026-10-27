@@ -12,7 +12,10 @@ typedef struct {
 
 static void *ncurses_init(RenderSize size)
 {
-    initscr();
+    /* initscr() fallisce se TERM e' assente/invalido: stdscr sarebbe NULL */
+    if (initscr() == NULL)
+        return NULL;
+
     curs_set(0);
     noecho();
     nodelay(stdscr, FALSE);
