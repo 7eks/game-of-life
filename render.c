@@ -155,6 +155,26 @@ static void ncurses_set_blocking(void *vctx, int blocking)
     nodelay(ctx->win, !blocking);
 }
 
+static void ncurses_get_size(void *vctx, int *max_rows, int *max_cols)
+{
+    (void)vctx;
+    int maxrow, maxcol;
+    getmaxyx(stdscr, maxrow, maxcol);
+
+    /* riserva 2 righe in basso per info, 1 colonna di margine */
+    if (max_rows)
+        *max_rows = (maxrow > 2) ? maxrow - 2 : 0;
+    if (max_cols)
+        *max_cols = (maxcol > 1) ? maxcol - 1 : 0;
+}
+
+static void ncurses_set_size(void *vctx, RenderSize size)
+{
+    RenderCtx *ctx = (RenderCtx *)vctx;
+    if (ctx)
+        ctx->size = size;
+}
+
 static void ncurses_cleanup(void *vctx)
 {
     RenderCtx *ctx = (RenderCtx *)vctx;
@@ -173,6 +193,8 @@ static const RenderBackend backend = {
     .adjust_speed = ncurses_adjust_speed,
     .get_speed    = ncurses_get_speed,
     .set_blocking = ncurses_set_blocking,
+    .get_size     = ncurses_get_size,
+    .set_size     = ncurses_set_size,
 };
 
 const RenderBackend *ncurses_backend(void)

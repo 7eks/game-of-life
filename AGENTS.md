@@ -49,12 +49,14 @@ struct RenderBackend {
     void    (*adjust_speed)(void *ctx, int delta);
     int     (*get_speed)(void *ctx);
     void    (*set_blocking)(void *ctx, int blocking);
+    void    (*get_size)(void *ctx, int *max_rows, int *max_cols);
+    void    (*set_size)(void *ctx, RenderSize size);
 };
 
 const RenderBackend *ncurses_backend(void);
 ```
 
-Ogni nuovo backend (SDL, GTK, ecc.) deve implementare queste 10 funzioni e
+Ogni nuovo backend (SDL, GTK, ecc.) deve implementare queste 12 funzioni e
 fornire una factory simile a `ncurses_backend()`.
 
 ## Regole di build
@@ -80,7 +82,7 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o render.o -lncurses
 
 1. Creare `sdl_render.c` (o nome simile)
 2. Definire struct di contesto privata (es. `SdlCtx`)
-3. Implementare le 10 funzioni dell'interfaccia
+3. Implementare le 12 funzioni dell'interfaccia
 4. Esportare `const RenderBackend *sdl_backend(void)`
 5. Modificare `main.c` per usare il nuovo backend al posto di `ncurses_backend()`
 6. Aggiornare `Makefile` per includere il nuovo file sorgente

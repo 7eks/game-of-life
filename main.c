@@ -59,11 +59,23 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* --- Inizializza backend (serve per prompt e get_size) --- */
+    void *ctx = backend->init((RenderSize){20, 40});
+    if (!ctx) {
+        fprintf(stderr, "Errore: impossibile inizializzare il backend\n");
+        return 1;
+    }
+
+    /* --- Ottieni dimensioni terminali disponibili --- */
+    int max_rows = 0, max_cols = 0;
+    if (backend->get_size)
+        backend->get_size(ctx, &max_rows, &max_cols);
+
     /* --- Prompt interattivo se dimensioni non fornite --- */
     if (rows < 0 || cols < 0) {
         mvprintw(0, 0, "Game of Life - Conway\n");
         if (rows < 0) {
-            mvprintw(2, 0, "Inserisci numero di righe (min: 5, default: 20): ");
+            mvprintw(2, 0, "Inserisci numero di righe (min: 5, max: %d, default: 20): ", max_rows);
             echo();
             curs_set(1);
             rows = 20;
@@ -74,7 +86,7 @@ int main(int argc, char *argv[])
                 rows = 20;
         }
         if (cols < 0) {
-            mvprintw(4, 0, "Inserisci numero di colonne (min: 5, default: 40): ");
+            mvprintw(4, 0, "Inserisci numero di colonne (min: 5, max: %d, default: 40): ", max_cols);
             echo();
             curs_set(1);
             cols = 40;
@@ -92,22 +104,25 @@ int main(int argc, char *argv[])
     if (cols < 5)
         cols = 40;
 
+    /* --- Controlla che la griglia entri nel terminale --- */
+    if (rows > max_rows || cols > max_cols) {
+        fprintf(stderr,
+                "Errore: griglia troppo grande (%dx%d) per il terminale (%dx%d)\n",
+                rows, cols, max_rows, max_cols);
+        backend->cleanup(ctx);
+        return 1;
+    }
+
     /* --- Crea board --- */
     GolBoard *board = gol_create(rows, cols);
     if (!board) {
         fprintf(stderr, "Errore: allocazione board fallita\n");
-        backend->cleanup(backend->init((RenderSize){rows, cols}));
+        backend->cleanup(ctx);
         return 1;
     }
 
-    /* --- Inizializza render --- */
-    RenderSize rsize = {rows, cols};
-    void *ctx = backend->init(rsize);
-    if (!ctx) {
-        fprintf(stderr, "Errore: inizializzazione display fallita\n");
-        gol_free(board);
-        return 1;
-    }
+    /* --- Aggiorna dimensione nel contesto render --- */
+    backend->set_size(ctx, (RenderSize){rows, cols});
 
     /* --- Randomizza e avvia --- */
     gol_randomize(board);
