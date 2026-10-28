@@ -438,6 +438,8 @@ static void *gtk_backend_init(RenderSize size)
 
     /* Drawing area */
     ctx->drawing_area = gtk_drawing_area_new();
+    /* Abilita eventi mouse e tastiera sulla drawing area */
+    gtk_widget_add_events(ctx->drawing_area, GDK_BUTTON_PRESS_MASK | GDK_KEY_PRESS_MASK);
     gtk_box_pack_start(GTK_BOX(vbox), ctx->drawing_area, TRUE, TRUE, 0);
 
     /* Status bar */
