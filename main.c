@@ -1,7 +1,9 @@
 #define _DEFAULT_SOURCE
 #include "gol.h"
 #include "render.h"
+#ifdef USE_NCURSES
 #include <ncurses.h>
+#endif
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -15,6 +17,7 @@ static void print_usage(const char *prog)
             "Options:\n"
             "  -r ROWS   Numero di righe (min: 5, default: 20)\n"
             "  -c COLS   Numero di colonne (min: 5, default: 40)\n"
+            "  -g        Usa backend GTK3 (GUI) invece di ncurses\n"
             "  -h        Mostra aiuto\n",
             prog);
 }
@@ -35,11 +38,12 @@ static int parse_int_arg(const char *arg, const char *opt, int *out)
 
 int main(int argc, char *argv[])
 {
+#ifdef USE_NCURSES
     const RenderBackend *backend = ncurses_backend();
-    if (!backend) {
-        fprintf(stderr, "Errore: impossibile inizializzare il backend\n");
-        return 1;
-    }
+#else
+    const RenderBackend *backend = gtk_backend();
+#endif
+    int use_gtk = 0;
 
     /* --- Parse opzioni CLI --- */
     int rows = -1;
@@ -71,6 +75,10 @@ int main(int argc, char *argv[])
                 return 1;
             }
             break;
+        case 'g':
+            use_gtk = 1;
+            backend = gtk_backend();
+            break;
         case 'h':
             print_usage(argv[0]);
             return 0;
@@ -79,6 +87,11 @@ int main(int argc, char *argv[])
             print_usage(argv[0]);
             return 1;
         }
+    }
+
+    if (!backend) {
+        fprintf(stderr, "Errore: impossibile inizializzare il backend\n");
+        return 1;
     }
 
     /* --- Inizializza backend (serve per prompt e get_size) --- */
@@ -93,8 +106,9 @@ int main(int argc, char *argv[])
     if (backend->get_size)
         backend->get_size(ctx, &max_rows, &max_cols);
 
-    /* --- Prompt interattivo se dimensioni non fornite --- */
-    if (rows < 0 || cols < 0) {
+    /* --- Prompt interattivo se dimensioni non fornite (solo ncurses) --- */
+#ifdef USE_NCURSES
+    if (!use_gtk && (rows < 0 || cols < 0)) {
         mvprintw(0, 0, "Game of Life - Conway\n");
         if (rows < 0) {
             mvprintw(2, 0, "Inserisci numero di righe (min: 5, max: %d, default: 20): ", max_rows);
@@ -120,14 +134,15 @@ int main(int argc, char *argv[])
         }
         clear();
     }
+#endif
 
     if (rows < 5)
         rows = 20;
     if (cols < 5)
         cols = 40;
 
-    /* --- Controlla che la griglia entri nel terminale --- */
-    if (rows > max_rows || cols > max_cols) {
+    /* --- Controlla che la griglia entri nel terminale (solo ncurses) --- */
+    if (!use_gtk && (rows > max_rows || cols > max_cols)) {
         /* cleanup prima di stampare: altrimenti il testo si mescola ai codici di escape */
         backend->cleanup(ctx);
         fprintf(stderr,
@@ -156,6 +171,10 @@ int main(int argc, char *argv[])
 
     while (running) {
         backend->render(ctx, board->grid, gen);
+
+        /* Process pending GTK events (no-op for ncurses) */
+        if (backend->process_events)
+            backend->process_events(ctx);
 
         backend->set_blocking(ctx, backend->get_pause(ctx));
         int ch = backend->read_key(ctx);

@@ -158,6 +158,12 @@ static void ncurses_set_blocking(void *vctx, int blocking)
     nodelay(ctx->win, !blocking);
 }
 
+static void ncurses_process_events(void *vctx)
+{
+    (void)vctx;
+    /* ncurses gestisce l'input in modo sincrono, nessun evento da processare */
+}
+
 static void ncurses_get_size(void *vctx, int *max_rows, int *max_cols)
 {
     (void)vctx;
@@ -196,6 +202,7 @@ static const RenderBackend backend = {
     .adjust_speed = ncurses_adjust_speed,
     .get_speed    = ncurses_get_speed,
     .set_blocking = ncurses_set_blocking,
+    .process_events = ncurses_process_events,
     .get_size     = ncurses_get_size,
     .set_size     = ncurses_set_size,
 };

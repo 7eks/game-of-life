@@ -5,19 +5,20 @@
 - **Linguaggio**: C11
 - **Compiler**: gcc (clang disponibile ma non testato)
 - **Build system**: Make
-- **UI**: ncurses
+- **UI**: ncurses (TUI) + GTK3 (GUI)
 - **Sanitizzazione**: AddressSanitizer + UndefinedBehaviorSanitizer (da attivare manualmente con `-fsanitize=address,undefined`)
 
 ## Struttura del progetto
 
 ```
 gol/
-├── Makefile        — regola build, target clean/run
+├── Makefile        — regola build, target clean/run, flag GTK=1
 ├── gol.h           — struct GolBoard + prototype funzioni core
 ├── gol.c           — implementazione logica pura (no dipendenze esterne)
 ├── render.h        — interfaccia astratta RenderBackend
 ├── render.c        — implementazione backend ncurses
-├── main.c          — entry point, parsing CLI (-r, -c, -h), ciclo principale
+├── gtk_render.c    — implementazione backend GTK3 (GUI)
+├── main.c          — entry point, parsing CLI (-r, -c, -g, -h), ciclo principale
 ├── README.md       — documentazione utente
 └── AGENTS.md       — questo file
 ```
@@ -29,7 +30,8 @@ gol/
 | `gol.h` / `gol.c` | Allocazione, step, random, clear della board | stdlib, string.h, time.h |
 | `render.h` | Interfaccia `RenderBackend` (function pointers) | stdint.h |
 | `render.c` | Implementazione ncurses del backend (barra velocità 5 livelli, info in 2 righe) | ncurses.h, stdlib.h |
-| `main.c` | Parsing opzioni CLI (`-r`, `-c`, `-h`), fallback prompt interattivo, ciclo principale, input handling | gol.h, render.h, ncurses.h, stdio.h, stdlib.h, unistd.h |
+| `gtk_render.c` | Backend GTK3 (Cairo rendering, menu, status bar, mouse, fullscreen, resize) | gtk+-3.0, stdlib.h |
+| `main.c` | Parsing opzioni CLI (`-r`, `-c`, `-g`, `-h`), fallback prompt interattivo, ciclo principale, input handling | gol.h, render.h, ncurses.h, stdio.h, stdlib.h, unistd.h |
 
 ## Interfaccia RenderBackend (da citare)
 
@@ -54,6 +56,7 @@ struct RenderBackend {
 };
 
 const RenderBackend *ncurses_backend(void);
+const RenderBackend *gtk_backend(void);
 ```
 
 Ogni nuovo backend (SDL, GTK, ecc.) deve implementare queste 12 funzioni e
@@ -61,9 +64,18 @@ fornire una factory simile a `ncurses_backend()`.
 
 ## Regole di build
 
+### ncurses (default)
 ```bash
 gcc -std=c11 -Wall -Wextra -Wpedantic -g -c -o main.o main.c
 gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o render.o -lncurses
+```
+
+### GTK3
+```bash
+pkg-config --cflags gtk+-3.0   # flags di compilazione
+pkg-config --libs gtk+-3.0     # flags di linking
+gcc -std=c11 -Wall -Wextra -Wpedantic -g -c -o main.o main.c
+gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o gtk_render.o $(pkg-config --cflags --libs gtk+-3.0)
 ```
 
 - **Zero warning** obbligatori
@@ -75,7 +87,7 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o render.o -lncurses
 - Controllare ogni `malloc`/`calloc`/`realloc`, free su ogni path di errore
 - Non usare `strcpy`/`sprintf`/`gets` → preferire `strncpy`/`snprintf`
 - No cast per silenziare warning
-- Nomi funzioni: `gol_*` per core, `ncurses_*` per backend, `ncurses_backend()` per factory interfaccia
+- Nomi funzioni: `gol_*` per core, `ncurses_*` per backend ncurses, `gtk_*` per backend GTK3, `ncurses_backend()` / `gtk_backend()` per factory interfaccia
 - Commenti in italiano nel codice, README in italiano
 
 ## Come aggiungere un nuovo backend
@@ -89,6 +101,7 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o render.o -lncurses
 
 ## Note implementative
 
+### ncurses
 - `gol_step` usa doppio buffer (alloca 2 grid, swap pointer)
 - `gol_step` usa **wrapping toroidale**: `(i + di + rows) % rows` per i vicini,
   così un glider che esce da un lato rientra dall'opposto
@@ -98,3 +111,15 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o render.o -lncurses
 - Velocità: scala 50-500ms in step da 100ms, display a barra 5 livelli (`#####` a `-----`)
 - `q:esci` visualizzato a destra della barra velocità nella riga info inferiore
 - Griglia centrata nel terminale con offset calcolato dinamicamente
+
+### GTK3
+- **Cell size**: 12px fissi (coordinate logical)
+- **Resize finestra**: ricalcola rows/cols = available / cell_size, resetta board + gen=0
+- **Mouse**: click sinistro = toggle cella (solo in pausa)
+- **Fullscreen**: F11 toggle
+- **Menu**: File (New, Quit) | Game (Random, Clear, Pause) | View (Speed +, Speed -) | Help (Shortcuts)
+- **Status bar**: riga in basso — `Gen: N | PAUSA | ####- | q:esci`
+- **Tema scuro**: sfondo #1a1a2e, alive #4CAF50, dead #0f0f23, bordi #16213e
+- **Rendering**: Cairo su `GtkDrawingArea`
+- **Input**: GDK events → key code per `read_key()`
+- **Scale factor**: GTK3 espone `gtk_widget_get_scale_factor()` per HiDPI, Cairo gestisce automaticamente

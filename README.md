@@ -1,13 +1,14 @@
 # Game of Life — Conway
 
-Implementazione in C del **Conway's Game of Life** con interfaccia TUI basata su ncurses.
+Implementazione in C del **Conway's Game of Life** con due interfacce: **TUI** (ncurses) e **GUI** (GTK3).
 
 ## Requisiti
 
+### Dipendenze comuni
 - GCC (o clang)
 - Make
-- libncurses-dev
 
+### TUI (ncurses)
 ```bash
 # Su Arch Linux / Omarchy
 sudo pacman -S ncurses
@@ -16,24 +17,44 @@ sudo pacman -S ncurses
 sudo apt install libncurses5-dev
 ```
 
+### GUI (GTK3)
+```bash
+# Su Arch Linux / Omarchy
+sudo pacman -S gtk3
+
+# Su Debian / Ubuntu
+sudo apt install libgtk-3-dev
+```
+
 ## Build
 
+### Backend ncurses (default)
 ```bash
 make
 ```
 
-Per pulire i file compilati:
+### Backend GTK3
+```bash
+make GTK=1
+```
 
+Per pulire i file compilati:
 ```bash
 make clean
 ```
 
 ## Esecuzione
 
+### Backend ncurses (default)
 ```bash
 make run
 # oppure
 ./gol
+```
+
+### Backend GTK3
+```bash
+./gol -g
 ```
 
 È possibile specificare le dimensioni della griglia direttamente da riga di comando:
@@ -51,15 +72,16 @@ make run
 |---------|------------|
 | `-r ROWS` | Numero di righe (min: 5, default: 20) |
 | `-c COLS` | Numero di colonne (min: 5, default: 40) |
+| `-g` | Usa backend GTK3 (GUI) invece di ncurses |
 | `-h` | Mostra aiuto |
 
-Se le dimensioni non vengono fornite via CLI, viene richiesto un prompt interattivo.
+Se le dimensioni non vengono fornite via CLI, viene richiesto un prompt interattivo (solo ncurses).
 
 ## Utilizzo
 
 La griglia viene randomizzata automaticamente e la simulazione parte.
 
-### Controlli
+### Controlli TUI (ncurses)
 
 | Tasto | Azione |
 |-------|--------|
@@ -73,15 +95,34 @@ La griglia viene randomizzata automaticamente e la simulazione parte.
 La velocità è visualizzata come barra a 5 livelli: `#####` (50ms, max) → `-----` (500ms, min).
 `+` e `-` regolano la velocità in step da 100ms.
 
+### Controlli GUI (GTK3)
+
+| Tasto / Azione | Descrizione |
+|----------------|------------|
+| `F11` | Toggle fullscreen |
+| `Spazio` | Pausa / Ripresa |
+| `r` | Randomizza la griglia (reset generazione) |
+| `c` | Pulisci la griglia (reset generazione) |
+| `+` / `=` | Aumenta velocità (più veloce) |
+| `-` / `_` | Diminuisci velocità (più lento) |
+| `q` | Esci |
+| `Click sinistro` | Toggle cella (solo in pausa) |
+
+La velocità è visualizzata nella status bar in basso con barra a 5 livelli: `#####` (50ms, max) → `-----` (500ms, min).
+
 ## Architettura
 
-Il progetto è strutturato in due layer separati:
+Il progetto è strutturato in tre layer separati:
 
 - **Core** (`gol.h` / `gol.c`) — logica pura del gioco, zero dipendenze esterne.
   Gestisce allocazione, step, randomizzazione e pulizia della griglia.
 
-- **Render** (`render.h` / `render.c`) — interfaccia astratta tramite `RenderBackend`,
+- **Render** (`render.h`) — interfaccia astratta tramite `RenderBackend`,
   una struct di function pointer che ogni backend deve implementare.
+
+- **Backend** (`render.c`, `gtk_render.c`) — implementazioni concrete:
+  - `render.c` → backend ncurses (TUI, terminale)
+  - `gtk_render.c` → backend GTK3 (GUI, windowing nativo)
 
 ```
 ┌─────────────────────────────────────────┐
@@ -92,7 +133,10 @@ Il progetto è strutturato in due layer separati:
 │   init / clear / render / cleanup       │
 │   read_key / set_pause / get_pause      │
 │   adjust_speed / get_speed              │
-│   set_blocking                          │
+│   set_blocking / get_size / set_size    │
+├─────────────────────────────────────────┤
+│   render.c              → ncurses TUI   │
+│   gtk_render.c          → GTK3 GUI      │
 ├─────────────────────────────────────────┤
 │   gol.c / gol.h                         │
 │   (logica pura del gioco)               │
@@ -100,7 +144,7 @@ Il progetto è strutturato in due layer separati:
 └─────────────────────────────────────────┘
 ```
 
-Per aggiungere un nuovo backend (es. SDL, GTK, WebGL) basta implementare
+Per aggiungere un nuovo backend (es. SDL, WebGL) basta implementare
 l'interfaccia `RenderBackend` in un nuovo file senza modificare `gol.c`.
 
 ## Regole del Game of Life
