@@ -107,8 +107,16 @@ La velocità è visualizzata come barra a 5 livelli: `#####` (50ms, max) → `--
 | `-` / `_` | Diminuisci velocità (più lento) |
 | `q` | Esci |
 | `Click sinistro` | Toggle cella (solo in pausa) |
+| `Ridimensiona finestra` | Ricrea board con nuove dimensioni (random + gen=0) |
 
 La velocità è visualizzata nella status bar in basso con barra a 5 livelli: `#####` (50ms, max) → `-----` (500ms, min).
+
+### Resize GTK3
+
+Ridimensionando la finestra, la board viene automaticamente ricreata con le nuove dimensioni
+(calcolate in base alla `GtkDrawingArea` dividendo per cell_size + padding). La generazione
+viene resettata a 0 e la griglia viene randomizzata. Durante la creazione iniziale della
+finestra il resize viene ignorato (la board non esiste ancora).
 
 ## Architettura
 
@@ -134,9 +142,12 @@ Il progetto è strutturato in tre layer separati:
 │   read_key / set_pause / get_pause      │
 │   adjust_speed / get_speed              │
 │   set_blocking / get_size / set_size    │
+│   reset_board / get_board_size / clear_grid │
+│   process_events                        │
 ├─────────────────────────────────────────┤
 │   render.c              → ncurses TUI   │
 │   gtk_render.c          → GTK3 GUI      │
+│   gtk_stub.c            → stub fallback │
 ├─────────────────────────────────────────┤
 │   gol.c / gol.h                         │
 │   (logica pura del gioco)               │

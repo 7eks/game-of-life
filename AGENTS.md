@@ -18,6 +18,7 @@ gol/
 ├── render.h        — interfaccia astratta RenderBackend
 ├── render.c        — implementazione backend ncurses
 ├── gtk_render.c    — implementazione backend GTK3 (GUI)
+├── gtk_stub.c      — stub GTK per build senza dipendenze (ncurses only)
 ├── main.c          — entry point, parsing CLI (-r, -c, -g, -h), ciclo principale
 ├── README.md       — documentazione utente
 └── AGENTS.md       — questo file
@@ -31,7 +32,8 @@ gol/
 | `render.h` | Interfaccia `RenderBackend` (function pointers) | stdint.h |
 | `render.c` | Implementazione ncurses del backend (barra velocità 5 livelli, info in 2 righe) | ncurses.h, stdlib.h |
 | `gtk_render.c` | Backend GTK3 (Cairo rendering, menu, status bar, mouse, fullscreen, resize) | gtk+-3.0, stdlib.h |
-| `main.c` | Parsing opzioni CLI (`-r`, `-c`, `-g`, `-h`), fallback prompt interattivo, ciclo principale, input handling | gol.h, render.h, ncurses.h, stdio.h, stdlib.h, unistd.h |
+| `gtk_stub.c` | Stub GTK per build ncurses-only (fallback quando GTK non disponibile) | — |
+| `main.c` | Parsing opzioni CLI (`-r`, `-c`, `-g`, `-h`), fallback prompt interattivo, ciclo principale, input handling, resize board | gol.h, render.h, stdio.h, stdlib.h, unistd.h |
 
 ## Interfaccia RenderBackend (da citare)
 
@@ -53,13 +55,17 @@ struct RenderBackend {
     void    (*set_blocking)(void *ctx, int blocking);
     void    (*get_size)(void *ctx, int *max_rows, int *max_cols);
     void    (*set_size)(void *ctx, RenderSize size);
+    void    (*reset_board)(void *ctx);
+    void    (*get_board_size)(void *ctx, int *rows, int *cols);
+    void    (*clear_grid)(void *ctx);
+    void    (*process_events)(void *ctx);
 };
 
 const RenderBackend *ncurses_backend(void);
 const RenderBackend *gtk_backend(void);
 ```
 
-Ogni nuovo backend (SDL, GTK, ecc.) deve implementare queste 12 funzioni e
+Ogni nuovo backend (SDL, GTK, ecc.) deve implementare queste 15 funzioni e
 fornire una factory simile a `ncurses_backend()`.
 
 ## Regole di build
@@ -94,7 +100,7 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o gtk_render.o $(pkg-
 
 1. Creare `sdl_render.c` (o nome simile)
 2. Definire struct di contesto privata (es. `SdlCtx`)
-3. Implementare le 12 funzioni dell'interfaccia
+3. Implementare le 15 funzioni dell'interfaccia
 4. Esportare `const RenderBackend *sdl_backend(void)`
 5. Modificare `main.c` per usare il nuovo backend al posto di `ncurses_backend()`
 6. Aggiornare `Makefile` per includere il nuovo file sorgente
@@ -114,8 +120,11 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o gtk_render.o $(pkg-
 
 ### GTK3
 - **Cell size**: 12px fissi (coordinate logical)
-- **Resize finestra**: ricalcola rows/cols = available / cell_size, resetta board + gen=0
-- **Mouse**: click sinistro = toggle cella (solo in pausa)
+- **Resize finestra**: `on_configure` ricalcola rows/cols = available / cell_size.
+  Se `ctx->grid != NULL` (finestra già creata, board esistente), chiama
+  `reset_board()` → imposta `last_key = 'R'` → main loop ricrea board con nuove
+  dimensioni + random + gen=0. Se `ctx->grid == NULL` (creazione finestra), ignora.
+- **Mouse**: click sinistro = toggle cella (solo in pausa, condizione `!ctx->paused`)
 - **Fullscreen**: F11 toggle
 - **Menu**: File (New, Quit) | Game (Random, Clear, Pause) | View (Speed +, Speed -) | Help (Shortcuts)
 - **Status bar**: riga in basso — `Gen: N | PAUSA | ####- | q:esci`
@@ -123,3 +132,7 @@ gcc -std=c11 -Wall -Wextra -Wpedantic -g -o gol main.o gol.o gtk_render.o $(pkg-
 - **Rendering**: Cairo su `GtkDrawingArea`
 - **Input**: GDK events → key code per `read_key()`
 - **Scale factor**: GTK3 espone `gtk_widget_get_scale_factor()` per HiDPI, Cairo gestisce automaticamente
+- **Dimensioni**: `ctx->size` = dimensioni reali board, `ctx->cur_rows/cols` = dimensioni display.
+  `gtk_backend_render` sincronizza display → board (`ctx->cur_rows = ctx->size.rows`).
+  `reset_board` NON aggiorna `ctx->size` (resta pari alla board attuale).
+  `get_board_size` restituisce `ctx->cur_rows/cols` (window dims) per resize.
