@@ -194,6 +194,25 @@ int main(int argc, char *argv[])
             gol_clear(board);
             gen = 0;
             break;
+        case 'R':
+            /* Resize board (GTK resize) */
+            {
+                int nrows, ncols;
+                backend->get_board_size(ctx, &nrows, &ncols);
+                /* Nulla il puntatore al grid: on_draw potrebbe essere in coda */
+                backend->clear_grid(ctx);
+                gol_free(board);
+                board = gol_create(nrows, ncols);
+                if (!board) {
+                    fprintf(stderr, "Errore: allocazione board fallita\n");
+                    running = 0;
+                } else {
+                    backend->set_size(ctx, (RenderSize){nrows, ncols});
+                    gol_randomize(board);
+                    gen = 0;
+                }
+            }
+            break;
         case '+':
         case '=':
             backend->adjust_speed(ctx, 1);

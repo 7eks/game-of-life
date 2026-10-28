@@ -184,6 +184,30 @@ static void ncurses_set_size(void *vctx, RenderSize size)
         ctx->size = size;
 }
 
+static void ncurses_reset_board(void *vctx)
+{
+    /* ncurses: resize non supportato, no-op */
+    (void)vctx;
+}
+
+static void ncurses_get_board_size(void *vctx, int *rows, int *cols)
+{
+    RenderCtx *ctx = (RenderCtx *)vctx;
+    if (!ctx) {
+        if (rows) *rows = 20;
+        if (cols) *cols = 40;
+        return;
+    }
+    if (rows) *rows = ctx->size.rows;
+    if (cols) *cols = ctx->size.cols;
+}
+
+static void ncurses_clear_grid(void *vctx)
+{
+    /* ncurses: nessun puntatore grid separato, no-op */
+    (void)vctx;
+}
+
 static void ncurses_cleanup(void *vctx)
 {
     RenderCtx *ctx = (RenderCtx *)vctx;
@@ -205,6 +229,9 @@ static const RenderBackend backend = {
     .process_events = ncurses_process_events,
     .get_size     = ncurses_get_size,
     .set_size     = ncurses_set_size,
+    .reset_board  = ncurses_reset_board,
+    .get_board_size = ncurses_get_board_size,
+    .clear_grid   = ncurses_clear_grid,
 };
 
 const RenderBackend *ncurses_backend(void)

@@ -12,6 +12,10 @@
 #define SPEED_DEFAULT   250
 
 /* --- Contesto privato GTK --- */
+
+/* Forward declaration */
+static void gtk_backend_reset_board(void *ctx);
+
 typedef struct {
     RenderSize  size;
     int         paused;
@@ -140,8 +144,16 @@ static gboolean on_configure(GtkWidget *widget, GdkEventConfigure *event, void *
         ctx->cur_cols = new_cols;
         ctx->cur_rows = new_rows;
 
-        /* Refresh drawing area */
-        gtk_widget_queue_draw(widget);
+        /* on_configure firea anche alla creazione finestra (ctx->grid == NULL).
+           Ignorare: la board non esiste ancora, verrà creata dal main loop. */
+        if (!ctx->grid)
+            return FALSE;
+
+        /* Richiede al main loop di ricreare la board con nuove dimensioni */
+        if (ctx->size.rows != new_rows || ctx->size.cols != new_cols)
+            gtk_backend_reset_board(ctx);
+        else
+            gtk_widget_queue_draw(widget);
     }
 
     return FALSE;
@@ -151,7 +163,7 @@ static gboolean on_configure(GtkWidget *widget, GdkEventConfigure *event, void *
 static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, void *vctx)
 {
     GtkRenderCtx *ctx = (GtkRenderCtx *)vctx;
-    if (!ctx || ctx->paused)
+    if (!ctx || !ctx->paused)
         return FALSE;
 
     if (event->button != 1) /* Solo click sinistro */
@@ -465,6 +477,14 @@ static void gtk_backend_render(void *vctx, int **grid, uint64_t gen)
     ctx->grid = grid;
     ctx->gen = gen;
 
+    /* Sincronizza le dimensioni di visualizzazione con quelle della board.
+       ctx->size deve sempre contenere le dimensioni reali della board. */
+    if (ctx->cur_rows != ctx->size.rows || ctx->cur_cols != ctx->size.cols) {
+        ctx->cur_rows = ctx->size.rows;
+        ctx->cur_cols = ctx->size.cols;
+        gtk_widget_queue_draw(ctx->drawing_area);
+    }
+
     /* Aggiorna status bar */
     update_status(ctx);
 
@@ -557,6 +577,35 @@ static void gtk_backend_set_size(void *vctx, RenderSize size)
     ctx->cur_cols = size.cols;
 }
 
+static void gtk_backend_reset_board(void *vctx)
+{
+    GtkRenderCtx *ctx = (GtkRenderCtx *)vctx;
+    if (!ctx)
+        return;
+    /* Segnala al main loop di ricreare la board.
+       Non aggiornare ctx->size: resta pari alle dimensioni reali della board. */
+    ctx->last_key = 'R';
+}
+
+static void gtk_backend_get_board_size(void *vctx, int *rows, int *cols)
+{
+    GtkRenderCtx *ctx = (GtkRenderCtx *)vctx;
+    if (!ctx) {
+        if (rows) *rows = 20;
+        if (cols) *cols = 40;
+        return;
+    }
+    if (rows) *rows = ctx->cur_rows;
+    if (cols) *cols = ctx->cur_cols;
+}
+
+static void gtk_backend_clear_grid(void *vctx)
+{
+    GtkRenderCtx *ctx = (GtkRenderCtx *)vctx;
+    if (ctx)
+        ctx->grid = NULL;
+}
+
 /* Static backend struct */
 static const RenderBackend backend = {
     .init         = gtk_backend_init,
@@ -572,6 +621,9 @@ static const RenderBackend backend = {
     .process_events = gtk_backend_process_events,
     .get_size     = gtk_backend_get_size,
     .set_size     = gtk_backend_set_size,
+    .reset_board  = gtk_backend_reset_board,
+    .get_board_size = gtk_backend_get_board_size,
+    .clear_grid   = gtk_backend_clear_grid,
 };
 
 const RenderBackend *gtk_backend(void)

@@ -24,6 +24,9 @@ struct RenderBackend {
     void    (*process_events)(void *ctx);
     void    (*get_size)(void *ctx, int *max_rows, int *max_cols);
     void    (*set_size)(void *ctx, RenderSize size);
+    void    (*reset_board)(void *ctx);
+    void    (*get_board_size)(void *ctx, int *rows, int *cols);
+    void    (*clear_grid)(void *ctx);
 };
 
 const RenderBackend *ncurses_backend(void);
