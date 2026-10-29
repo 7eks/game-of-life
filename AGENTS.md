@@ -1,21 +1,21 @@
 # Game of Life — Contesto per AI Agents
 
 ## Stack
-C11 · gcc · Make. UI: ncurses (TUI, default) + GTK3 (GUI). Sanitizers: `-fsanitize=address,undefined` (manuali).
+C11 · gcc · Make. UI: ncurses (TUI, default) + GTK3 (GUI) in un unico binario (`gol`), selezionato con `-g`.
 
 ## Struttura
 - `gol.h/.c` — `GolBoard` + logica pura (stdlib, string.h, time.h)
 - `render.h` — interfaccia astratta `RenderBackend`; `render.c` — backend ncurses
-- `gtk_render.c` — backend GTK3; `gtk_stub.c` — stub per build ncurses-only
+- `gtk_render.c` — backend GTK3
 - `main.c` — entry point, CLI (`-r -c -g -h`), ciclo principale
-- `Makefile` — build/clean/run, `GTK=1` per GTK3
+- `Makefile` — build/clean/run, compila entrambi i backend in un unico binario
 
 ## RenderBackend
 Vedi `render.h`. Ogni backend implementa tutti i metodi della struct (`init, clear, render, cleanup, read_key, set/get_pause, adjust/get_speed, set_blocking, get/set_size, reset_board, get_board_size, clear_grid, process_events`) + factory `const RenderBackend *<name>_backend(void)`.
 
 ## Build
-- `make` (ncurses) / `make GTK=1` (GTK3) — zero warning obbligatori
-- `_DEFAULT_SOURCE` in `main.c` per `usleep()`; `getch` rinominato `read_key` (macro ncurses)
+- `make` — binario singolo `gol` con entrambi i backend; `-g` per GTK3, default ncurses
+- `GTK_CFLAGS` e `GTK_LIBS` da `pkg-config` (se GTK3 non disponibile, `gtk_render.o` fallisce)
 
 ## Convenzioni
 - Controllare ogni `malloc`/`calloc`/`realloc`; free su ogni path di errore
@@ -27,7 +27,7 @@ Vedi `render.h`. Ogni backend implementa tutti i metodi della struct (`init, cle
 ## Nuovo backend
 1. `<name>_render.c` con struct contesto privata
 2. Implementare tutti i metodi + factory
-3. Collegare in `main.c`, aggiornare `Makefile`
+3. Collegare in `main.c`, aggiungere regola di compilazione nel `Makefile`
 
 ## Note
 ### ncurses

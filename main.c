@@ -38,11 +38,6 @@ static int parse_int_arg(const char *arg, const char *opt, int *out)
 
 int main(int argc, char *argv[])
 {
-#ifdef USE_NCURSES
-    const RenderBackend *backend = ncurses_backend();
-#else
-    const RenderBackend *backend = gtk_backend();
-#endif
     int use_gtk = 0;
 
     /* --- Parse opzioni CLI --- */
@@ -77,7 +72,6 @@ int main(int argc, char *argv[])
             break;
         case 'g':
             use_gtk = 1;
-            backend = gtk_backend();
             break;
         case 'h':
             print_usage(argv[0]);
@@ -87,6 +81,14 @@ int main(int argc, char *argv[])
             print_usage(argv[0]);
             return 1;
         }
+    }
+
+    /* --- Seleziona backend --- */
+    const RenderBackend *backend;
+    if (use_gtk) {
+        backend = gtk_backend();
+    } else {
+        backend = ncurses_backend();
     }
 
     if (!backend) {
