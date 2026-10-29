@@ -333,11 +333,6 @@ static GtkWidget *create_menu_bar(GtkRenderCtx *ctx)
     /* --- Popup menu --- */
     GtkWidget *file_popup = gtk_menu_new();
 
-    GtkWidget *new_item = gtk_menu_item_new_with_label("Nuovo");
-    g_signal_connect(G_OBJECT(new_item), "activate",
-                     G_CALLBACK(on_menu_random), ctx);
-    gtk_menu_shell_append(GTK_MENU_SHELL(file_popup), new_item);
-
     GtkWidget *quit_item = gtk_menu_item_new_with_label("Esci");
     g_signal_connect(G_OBJECT(quit_item), "activate",
                      G_CALLBACK(on_menu_quit), ctx);
