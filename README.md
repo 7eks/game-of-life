@@ -47,7 +47,7 @@ make clean    # remove build artifacts
 
 ```
 main.c          — event loop, timing, CLI
-├─ RenderBackend — abstract interface (15 methods)
+├─ RenderBackend — abstract interface (17 methods)
 │   ├─ render.c  → ncurses TUI
 │   └─ gtk_render.c → GTK3 GUI
 └─ gol.c / gol.h — pure game logic (stdlib only)
@@ -55,7 +55,7 @@ main.c          — event loop, timing, CLI
 
 **`GolBoard`** (`gol.h`): `rows`, `cols`, `**grid`. Functions: `gol_create()`, `gol_free()`, `gol_randomize()`, `gol_clear()`, `gol_step()`.
 
-**`RenderBackend`** (`render.h`): function-pointer struct with 15 methods — `init`, `clear`, `render`, `cleanup`, `read_key`, `set_pause`/`get_pause`, `adjust_speed`/`get_speed`, `set_blocking`, `process_events`, `get_size`/`set_size`, `reset_board`, `get_board_size`, `clear_grid`. Factories: `ncurses_backend()`, `gtk_backend()`.
+**`RenderBackend`** (`render.h`): function-pointer struct with 17 methods — `init`, `clear`, `render`, `cleanup`, `read_key`, `set_pause`/`get_pause`, `adjust_speed`/`get_speed`, `set_blocking`, `process_events`, `get_size`/`set_size`, `reset_board`, `get_board_size`, `clear_grid`, `prompt_int`, `clear_prompt`. Factories: `ncurses_backend()`, `gtk_backend()`.
 
 ### Core logic (`gol.c`)
 - **Double-buffered step** with toroidal wrapping: `(i + di + rows) % rows`
@@ -64,7 +64,7 @@ main.c          — event loop, timing, CLI
 - **Key handling**: non-blocking via `nodelay()` when running, blocking when paused
 
 ### GTK3 details
-- 12 px cells with Cairo on `GtkDrawingArea`; HiDPI via `scale_factor()`
+- 12 px cells with Cairo on `GtkDrawingArea`; no HiDPI handling (fixed pixel coordinates)
 - Dark theme: bg `#1a1a2e`, alive `#4CAF50`, dead `#0f0f23`, borders `#16213e`
 - Menu bar: File · Game · View · Help
 - `ctx->size` = real board size; `ctx->cur_rows/cols` = display size

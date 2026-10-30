@@ -1,15 +1,8 @@
 #include "render.h"
+#include "gol.h"
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* --- Costanti --- */
-#define CELL_SIZE       12
-#define CELL_PADDING    1
-#define SPEED_MIN       50
-#define SPEED_MAX       500
-#define SPEED_STEP      100
-#define SPEED_DEFAULT   250
 
 /* --- Contesto privato GTK --- */
 
@@ -598,6 +591,23 @@ static void gtk_backend_clear_grid(void *vctx)
         ctx->grid = NULL;
 }
 
+static int gtk_backend_prompt_int(void *vctx, const char *msg, int min_val, int max_val, int default_val, int *out)
+{
+    /* GTK: nessun prompt interattivo, ritorna default */
+    (void)vctx;
+    (void)msg;
+    (void)min_val;
+    (void)max_val;
+    if (out)
+        *out = default_val;
+    return 0;
+}
+
+static void gtk_backend_clear_prompt(void *vctx)
+{
+    (void)vctx;
+}
+
 /* Static backend struct */
 static const RenderBackend backend = {
     .init         = gtk_backend_init,
@@ -615,7 +625,9 @@ static const RenderBackend backend = {
     .set_size     = gtk_backend_set_size,
     .reset_board  = gtk_backend_reset_board,
     .get_board_size = gtk_backend_get_board_size,
-    .clear_grid   = gtk_backend_clear_grid,
+    .clear_grid     = gtk_backend_clear_grid,
+    .prompt_int     = gtk_backend_prompt_int,
+    .clear_prompt   = gtk_backend_clear_prompt,
 };
 
 const RenderBackend *gtk_backend(void)

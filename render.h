@@ -27,6 +27,8 @@ struct RenderBackend {
     void    (*reset_board)(void *ctx);
     void    (*get_board_size)(void *ctx, int *rows, int *cols);
     void    (*clear_grid)(void *ctx);
+    int     (*prompt_int)(void *ctx, const char *msg, int min_val, int max_val, int default_val, int *out);
+    void    (*clear_prompt)(void *ctx);
 };
 
 const RenderBackend *ncurses_backend(void);

@@ -3,6 +3,20 @@
 
 #include <stdint.h>
 
+/* --- Costanti condivise --- */
+#define SPEED_MIN         50
+#define SPEED_MAX         500
+#define SPEED_STEP        100
+#define SPEED_DEFAULT     250
+
+#define GRID_MIN_ROWS     5
+#define GRID_MIN_COLS     5
+#define GRID_DEFAULT_ROWS 20
+#define GRID_DEFAULT_COLS 40
+
+#define CELL_SIZE         12
+#define CELL_PADDING      1
+
 typedef struct {
     int    rows;
     int    cols;

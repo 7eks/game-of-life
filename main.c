@@ -1,9 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "gol.h"
 #include "render.h"
-#ifdef USE_NCURSES
-#include <ncurses.h>
-#endif
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -28,9 +25,14 @@ static void print_usage(const char *prog)
    Restituisce 0 in caso di successo, -1 in caso di errore (messaggio gia' stampato). */
 static int parse_int_arg(const char *arg, const char *opt, int *out)
 {
+    if (arg == NULL || arg[0] == '\0') {
+        fprintf(stderr, "Errore: argomento vuoto per %s\n", opt);
+        return -1;
+    }
     errno = 0;
-    long v = strtol(arg, NULL, 10);
-    if (errno == ERANGE || v < INT_MIN || v > INT_MAX) {
+    char *endptr = NULL;
+    long v = strtol(arg, &endptr, 10);
+    if (errno == ERANGE || *endptr != '\0' || v < INT_MIN || v > INT_MAX) {
         fprintf(stderr, "Errore: valore fuori range per %s: '%s'\n", opt, arg);
         return -1;
     }
@@ -99,7 +101,7 @@ int main(int argc, char *argv[])
     }
 
     /* --- Inizializza backend (serve per prompt e get_size) --- */
-    void *ctx = backend->init((RenderSize){20, 40});
+    void *ctx = backend->init((RenderSize){GRID_DEFAULT_ROWS, GRID_DEFAULT_COLS});
     if (!ctx) {
         fprintf(stderr, "Errore: impossibile inizializzare il backend\n");
         return 1;
@@ -111,59 +113,23 @@ int main(int argc, char *argv[])
         backend->get_size(ctx, &max_rows, &max_cols);
 
     /* --- Prompt interattivo se dimensioni non fornite (solo ncurses) --- */
-#ifdef USE_NCURSES
     if (!use_gtk && (rows < 0 || cols < 0)) {
-        mvprintw(0, 0, "Game of Life - Conway\n");
         if (rows < 0) {
-            mvprintw(2, 0, "Inserisci numero di righe (min: 5, max: %d, default: 20): ", max_rows);
-            echo();
-            curs_set(1);
-            rows = 20;
-            {
-                char buf[64];
-                if (wgetnstr(stdscr, buf, sizeof(buf)) == ERR)
-                    buf[0] = '\0';
-                curs_set(0);
-                noecho();
-                if (buf[0] != '\0') {
-                    errno = 0;
-                    long v = strtol(buf, NULL, 10);
-                    if (errno != ERANGE && v >= 5 && v <= max_rows)
-                        rows = (int)v;
-                }
-            }
-            if (rows < 5)
-                rows = 20;
+            if (backend->prompt_int(ctx, "Inserisci numero di righe", GRID_MIN_COLS, max_rows, GRID_DEFAULT_ROWS, &rows) != 0)
+                rows = GRID_DEFAULT_ROWS;
         }
         if (cols < 0) {
-            mvprintw(4, 0, "Inserisci numero di colonne (min: 5, max: %d, default: 40): ", max_cols);
-            echo();
-            curs_set(1);
-            cols = 40;
-            {
-                char buf[64];
-                if (wgetnstr(stdscr, buf, sizeof(buf)) == ERR)
-                    buf[0] = '\0';
-                curs_set(0);
-                noecho();
-                if (buf[0] != '\0') {
-                    errno = 0;
-                    long v = strtol(buf, NULL, 10);
-                    if (errno != ERANGE && v >= 5 && v <= max_cols)
-                        cols = (int)v;
-                }
-            }
-            if (cols < 5)
-                cols = 40;
+            if (backend->prompt_int(ctx, "Inserisci numero di colonne", GRID_MIN_ROWS, max_cols, GRID_DEFAULT_COLS, &cols) != 0)
+                cols = GRID_DEFAULT_COLS;
         }
-        clear();
+        if (backend->clear_prompt)
+            backend->clear_prompt(ctx);
     }
-#endif
 
-    if (rows < 5)
-        rows = 20;
-    if (cols < 5)
-        cols = 40;
+    if (rows < GRID_MIN_ROWS)
+        rows = GRID_DEFAULT_ROWS;
+    if (cols < GRID_MIN_COLS)
+        cols = GRID_DEFAULT_COLS;
 
     /* --- Controlla che la griglia entri nel terminale (solo ncurses) --- */
     if (!use_gtk && (rows > max_rows || cols > max_cols)) {

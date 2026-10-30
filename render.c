@@ -1,5 +1,7 @@
 #include "render.h"
+#include "gol.h"
 #include <ncurses.h>
+#include <errno.h>
 #include <stdlib.h>
 
 typedef struct {
@@ -31,7 +33,7 @@ static void *ncurses_init(RenderSize size)
     ctx->size = size;
     ctx->win  = stdscr;
     ctx->paused = 0;
-    ctx->speed  = 250;  /* 250 ms default */
+    ctx->speed  = SPEED_DEFAULT;
     ctx->gen    = 0;
 
     return ctx;
@@ -98,7 +100,7 @@ static void ncurses_render(void *vctx, int **grid, uint64_t gen)
         addstr(buf);
 
         /* barra velocita: # = veloce, - = lento, 5 livelli */
-        int bars = (500 - ctx->speed + 50) / 100;
+        int bars = (SPEED_MAX - ctx->speed + SPEED_STEP / 2) / SPEED_STEP;
         if (bars < 0)
             bars = 0;
         if (bars > 5)
@@ -138,16 +140,16 @@ static void ncurses_adjust_speed(void *vctx, int delta)
     RenderCtx *ctx = (RenderCtx *)vctx;
     if (!ctx)
         return;
-    if (delta > 0 && ctx->speed > 50)
-        ctx->speed -= 100;
-    else if (delta < 0 && ctx->speed < 500)
-        ctx->speed += 100;
+    if (delta > 0 && ctx->speed > SPEED_MIN)
+        ctx->speed -= SPEED_STEP;
+    else if (delta < 0 && ctx->speed < SPEED_MAX)
+        ctx->speed += SPEED_STEP;
 }
 
 static int ncurses_get_speed(void *vctx)
 {
     RenderCtx *ctx = (RenderCtx *)vctx;
-    return ctx ? ctx->speed : 250;
+    return ctx ? ctx->speed : SPEED_DEFAULT;
 }
 
 static void ncurses_set_blocking(void *vctx, int blocking)
@@ -208,6 +210,69 @@ static void ncurses_clear_grid(void *vctx)
     (void)vctx;
 }
 
+static int ncurses_prompt_int(void *vctx, const char *msg, int min_val, int max_val, int default_val, int *out)
+{
+    RenderCtx *ctx = (RenderCtx *)vctx;
+    if (!ctx || !msg || !out)
+        return -1;
+
+    int maxrow, maxcol;
+    getmaxyx(stdscr, maxrow, maxcol);
+    (void)maxcol;
+
+    int prompt_row = (ctx->size.rows < maxrow - 2) ? ctx->size.rows : maxrow - 3;
+    if (prompt_row < 0)
+        prompt_row = maxrow - 3;
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s (min: %d, max: %d, default: %d): ", msg, min_val, max_val, default_val);
+
+    if (prompt_row >= 0 && move(prompt_row, 0) == OK) {
+        addstr(buf);
+        clrtoeol();
+    }
+
+    echo();
+    curs_set(1);
+    wgetnstr(stdscr, buf, sizeof(buf));
+    curs_set(0);
+    noecho();
+
+    if (buf[0] == '\0') {
+        *out = default_val;
+        return 0;
+    }
+
+    errno = 0;
+    char *endptr = NULL;
+    long v = strtol(buf, &endptr, 10);
+    if (errno != ERANGE && *endptr == '\0' && v >= min_val && v <= max_val) {
+        *out = (int)v;
+        return 0;
+    }
+
+    *out = default_val;
+    return 0;
+}
+
+static void ncurses_clear_prompt(void *vctx)
+{
+    RenderCtx *ctx = (RenderCtx *)vctx;
+    if (!ctx)
+        return;
+
+    int maxrow, maxcol;
+    getmaxyx(stdscr, maxrow, maxcol);
+    (void)maxcol;
+
+    int prompt_row = (ctx->size.rows < maxrow - 2) ? ctx->size.rows : maxrow - 3;
+    if (prompt_row < 0)
+        prompt_row = maxrow - 3;
+
+    if (prompt_row >= 0 && move(prompt_row, 0) == OK)
+        clrtoeol();
+}
+
 static void ncurses_cleanup(void *vctx)
 {
     RenderCtx *ctx = (RenderCtx *)vctx;
@@ -231,7 +296,9 @@ static const RenderBackend backend = {
     .set_size     = ncurses_set_size,
     .reset_board  = ncurses_reset_board,
     .get_board_size = ncurses_get_board_size,
-    .clear_grid   = ncurses_clear_grid,
+    .clear_grid     = ncurses_clear_grid,
+    .prompt_int     = ncurses_prompt_int,
+    .clear_prompt   = ncurses_clear_prompt,
 };
 
 const RenderBackend *ncurses_backend(void)
