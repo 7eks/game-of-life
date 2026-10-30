@@ -187,12 +187,12 @@ static gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, void *
     int col = mx / total_cell;
     int row = my / total_cell;
 
-    /* Controlla che il click sia dentro la griglia */
-    if (row < 0 || row >= ctx->size.rows || col < 0 || col >= ctx->size.cols)
+    /* Controlla che il click sia dentro la griglia di visualizzazione */
+    if (row < 0 || row >= ctx->cur_rows || col < 0 || col >= ctx->cur_cols)
         return FALSE;
 
-    /* Toggle cella direttamente sul grid passato dal main loop */
-    if (ctx->grid && ctx->grid[row])
+    /* Toggle cella: verifica anche che rientri nelle dimensioni reali della board */
+    if (ctx->grid && row < ctx->size.rows && col < ctx->size.cols && ctx->grid[row])
         ctx->grid[row][col] = !ctx->grid[row][col];
 
     gtk_widget_queue_draw(widget);
@@ -474,14 +474,6 @@ static void gtk_backend_render(void *vctx, int **grid, uint64_t gen)
     ctx->grid = grid;
     ctx->gen = gen;
 
-    /* Sincronizza le dimensioni di visualizzazione con quelle della board.
-       ctx->size deve sempre contenere le dimensioni reali della board. */
-    if (ctx->cur_rows != ctx->size.rows || ctx->cur_cols != ctx->size.cols) {
-        ctx->cur_rows = ctx->size.rows;
-        ctx->cur_cols = ctx->size.cols;
-        gtk_widget_queue_draw(ctx->drawing_area);
-    }
-
     /* Aggiorna status bar */
     update_status(ctx);
 
@@ -495,8 +487,12 @@ static void gtk_backend_cleanup(void *vctx)
     if (!ctx)
         return;
 
-    if (ctx->window)
+    if (ctx->window) {
         gtk_widget_destroy(ctx->window);
+        /* Processa eventi residui dopo la distruzione per evitare use-after-free */
+        while (gtk_events_pending())
+            gtk_main_iteration_do(FALSE);
+    }
     free(ctx);
 }
 
@@ -570,8 +566,7 @@ static void gtk_backend_set_size(void *vctx, RenderSize size)
     if (!ctx)
         return;
     ctx->size = size;
-    ctx->cur_rows = size.rows;
-    ctx->cur_cols = size.cols;
+    /* cur_rows/cols restano le dimensioni di display (aggiornate da on_configure) */
 }
 
 static void gtk_backend_reset_board(void *vctx)

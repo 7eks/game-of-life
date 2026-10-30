@@ -1,4 +1,4 @@
-#define _DEFAULT_SOURCE
+#define _POSIX_C_SOURCE 200809L
 #include "gol.h"
 #include "render.h"
 #ifdef USE_NCURSES
@@ -8,6 +8,8 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 static void print_usage(const char *prog)
@@ -117,9 +119,19 @@ int main(int argc, char *argv[])
             echo();
             curs_set(1);
             rows = 20;
-            scanw("%d", &rows);
-            curs_set(0);
-            noecho();
+            {
+                char buf[64];
+                if (wgetnstr(stdscr, buf, sizeof(buf)) == ERR)
+                    buf[0] = '\0';
+                curs_set(0);
+                noecho();
+                if (buf[0] != '\0') {
+                    errno = 0;
+                    long v = strtol(buf, NULL, 10);
+                    if (errno != ERANGE && v >= 5 && v <= max_rows)
+                        rows = (int)v;
+                }
+            }
             if (rows < 5)
                 rows = 20;
         }
@@ -128,9 +140,19 @@ int main(int argc, char *argv[])
             echo();
             curs_set(1);
             cols = 40;
-            scanw("%d", &cols);
-            curs_set(0);
-            noecho();
+            {
+                char buf[64];
+                if (wgetnstr(stdscr, buf, sizeof(buf)) == ERR)
+                    buf[0] = '\0';
+                curs_set(0);
+                noecho();
+                if (buf[0] != '\0') {
+                    errno = 0;
+                    long v = strtol(buf, NULL, 10);
+                    if (errno != ERANGE && v >= 5 && v <= max_cols)
+                        cols = (int)v;
+                }
+            }
             if (cols < 5)
                 cols = 40;
         }
@@ -228,7 +250,11 @@ int main(int argc, char *argv[])
         }
 
         if (!backend->get_pause(ctx) && running) {
-            usleep(backend->get_speed(ctx) * 1000);
+            struct timespec ts = {
+                .tv_sec  = backend->get_speed(ctx) / 1000,
+                .tv_nsec = (backend->get_speed(ctx) % 1000) * 1000000L
+            };
+            nanosleep(&ts, NULL);
             gol_step(board);
             gen++;
         }
