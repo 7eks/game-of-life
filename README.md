@@ -1,178 +1,86 @@
-# Game of Life — Conway
+# Conway's Game of Life
 
-Implementazione in C del **Conway's Game of Life** con due interfacce: **TUI** (ncurses) e **GUI** (GTK3).
-
-## Requisiti
-
-### Dipendenze comuni
-- GCC (o clang)
-- Make
-
-### TUI (ncurses)
-```bash
-# Su Arch Linux / Omarchy
-sudo pacman -S ncurses
-
-# Su Debian / Ubuntu
-sudo apt install libncurses5-dev
-```
-
-### GUI (GTK3)
-```bash
-# Su Arch Linux / Omarchy
-sudo pacman -S gtk3
-
-# Su Debian / Ubuntu
-sudo apt install libgtk-3-dev
-```
+C11 implementation of Conway's Game of Life with two render backends: **ncurses** (TUI) and **GTK3** (GUI), compiled into a single binary.
 
 ## Build
 
-### Backend ncurses (default)
 ```bash
-make
+make          # both backends (default)
+make clean    # remove build artifacts
 ```
 
-### Backend GTK3
-```bash
-make GTK=1
-```
+**Dependencies:** GCC/Clang, Make, ncurses dev headers, GTK3 dev headers (`pkg-config --cflags gtk+-3.0`).
 
-Per pulire i file compilati:
-```bash
-make clean
-```
-
-## Esecuzione
-
-### Backend ncurses (default)
-```bash
-make run
-# oppure
-./gol
-```
-
-### Backend GTK3
-```bash
-./gol -g
-```
-
-È possibile specificare le dimensioni della griglia direttamente da riga di comando:
+## Run
 
 ```bash
-./gol -r 30 -c 60   # 30 righe, 60 colonne
-./gol -r 10        # 10 righe, 40 colonne (default)
-./gol -c 80        # 20 righe (default), 80 colonne
-./gol -h           # Mostra aiuto
+./gol                  # ncurses (TUI)
+./gol -g               # GTK3 (GUI)
+./gol -r 30 -c 60      # custom rows/cols
+./gol -h               # usage
 ```
 
-### Opzioni CLI
+| Option  | Description |
+|---------|-------------|
+| `-r ROWS` | Rows (min 5, default 20) |
+| `-c COLS` | Cols (min 5, default 40) |
+| `-g`      | GTK3 backend |
+| `-h`      | Help |
 
-| Opzione | Descrizione |
-|---------|------------|
-| `-r ROWS` | Numero di righe (min: 5, default: 20) |
-| `-c COLS` | Numero di colonne (min: 5, default: 40) |
-| `-g` | Usa backend GTK3 (GUI) invece di ncurses |
-| `-h` | Mostra aiuto |
+## Controls
 
-Se le dimensioni non vengono fornite via CLI, viene richiesto un prompt interattivo (solo ncurses).
+| Key / Action | TUI | GUI |
+|---|---|---|
+| `Space` | Pause / Resume | Pause / Resume |
+| `r` | Randomize (gen → 0) | Randomize (gen → 0) |
+| `c` | Clear grid (gen → 0) | Clear grid (gen → 0) |
+| `+` / `=` | Speed up | Speed up |
+| `-` / `_` | Slow down | Slow down |
+| `q` | Quit | Quit |
+| `F11` | — | Toggle fullscreen |
+| Left click | — | Toggle cell (paused only) |
+| Resize window | — | Recreate board (random, gen → 0) |
 
-## Utilizzo
+**Speed:** 50–500 ms per step, 100 ms increments. Displayed as a 5-level bar: `#####` (fastest) → `-----` (slowest).
 
-La griglia viene randomizzata automaticamente e la simulazione parte.
-
-### Controlli TUI (ncurses)
-
-| Tasto | Azione |
-|-------|--------|
-| `Spazio` | Pausa / Ripresa |
-| `r` | Randomizza la griglia (reset generazione) |
-| `c` | Pulisci la griglia (reset generazione) |
-| `+` / `=` | Aumenta velocità (più veloce) |
-| `-` / `_` | Diminuisci velocità (più lento) |
-| `q` | Esci |
-
-La velocità è visualizzata come barra a 5 livelli: `#####` (50ms, max) → `-----` (500ms, min).
-`+` e `-` regolano la velocità in step da 100ms.
-
-### Controlli GUI (GTK3)
-
-| Tasto / Azione | Descrizione |
-|----------------|------------|
-| `F11` | Toggle fullscreen |
-| `Spazio` | Pausa / Ripresa |
-| `r` | Randomizza la griglia (reset generazione) |
-| `c` | Pulisci la griglia (reset generazione) |
-| `+` / `=` | Aumenta velocità (più veloce) |
-| `-` / `_` | Diminuisci velocità (più lento) |
-| `q` | Esci |
-| `Click sinistro` | Toggle cella (solo in pausa) |
-| `Ridimensiona finestra` | Ricrea board con nuove dimensioni (random + gen=0) |
-
-La velocità è visualizzata nella status bar in basso con barra a 5 livelli: `#####` (50ms, max) → `-----` (500ms, min).
-
-### Resize GTK3
-
-Ridimensionando la finestra, la board viene automaticamente ricreata con le nuove dimensioni
-(calcolate in base alla `GtkDrawingArea` dividendo per cell_size + padding). La generazione
-viene resettata a 0 e la griglia viene randomizzata. Durante la creazione iniziale della
-finestra il resize viene ignorato (la board non esiste ancora).
-
-## Architettura
-
-Il progetto è strutturato in tre layer separati:
-
-- **Core** (`gol.h` / `gol.c`) — logica pura del gioco, zero dipendenze esterne.
-  Gestisce allocazione, step, randomizzazione e pulizia della griglia.
-
-- **Render** (`render.h`) — interfaccia astratta tramite `RenderBackend`,
-  una struct di function pointer che ogni backend deve implementare.
-
-- **Backend** (`render.c`, `gtk_render.c`) — implementazioni concrete:
-  - `render.c` → backend ncurses (TUI, terminale)
-  - `gtk_render.c` → backend GTK3 (GUI, windowing nativo)
+## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│              main.c                     │
-│   (ciclo principale, input, timing)     │
-├─────────────────────────────────────────┤
-│   RenderBackend (interfaccia astratta)   │
-│   init / clear / render / cleanup       │
-│   read_key / set_pause / get_pause      │
-│   adjust_speed / get_speed              │
-│   set_blocking / get_size / set_size    │
-│   reset_board / get_board_size / clear_grid │
-│   process_events                        │
-├─────────────────────────────────────────┤
-│   render.c              → ncurses TUI   │
-│   gtk_render.c          → GTK3 GUI      │
-│   gtk_stub.c            → stub fallback │
-├─────────────────────────────────────────┤
-│   gol.c / gol.h                         │
-│   (logica pura del gioco)               │
-│   board toroidale con wrapping          │
-└─────────────────────────────────────────┘
+main.c          — event loop, timing, CLI
+├─ RenderBackend — abstract interface (15 methods)
+│   ├─ render.c  → ncurses TUI
+│   └─ gtk_render.c → GTK3 GUI
+└─ gol.c / gol.h — pure game logic (stdlib only)
 ```
 
-Per aggiungere un nuovo backend (es. SDL, WebGL) basta implementare
-l'interfaccia `RenderBackend` in un nuovo file senza modificare `gol.c`.
+**`GolBoard`** (`gol.h`): `rows`, `cols`, `**grid`. Functions: `gol_create()`, `gol_free()`, `gol_randomize()`, `gol_clear()`, `gol_step()`.
 
-## Regole del Game of Life
+**`RenderBackend`** (`render.h`): function-pointer struct with 15 methods — `init`, `clear`, `render`, `cleanup`, `read_key`, `set_pause`/`get_pause`, `adjust_speed`/`get_speed`, `set_blocking`, `process_events`, `get_size`/`set_size`, `reset_board`, `get_board_size`, `clear_grid`. Factories: `ncurses_backend()`, `gtk_backend()`.
 
-Ogni cella può essere **viva** o **morta**. Ad ogni generazione:
+### Core logic (`gol.c`)
+- **Double-buffered step** with toroidal wrapping: `(i + di + rows) % rows`
+- **Randomize**: 30 % alive, seeded once via `srand(time(NULL))`
+- **Step timing**: `nanosleep()` with speed from backend (50–500 ms)
+- **Key handling**: non-blocking via `nodelay()` when running, blocking when paused
 
-- Una cella viva con **meno di 2** vicini vivi muore (solitudine)
-- Una cella viva con **2 o 3** vicini vivi sopravvive
-- Una cella viva con **più di 3** vicini vivi muore (sovraffollamento)
-- Una cella morta con **esattamente 3** vicini vivi diventa viva (riproduzione)
+### GTK3 details
+- 12 px cells with Cairo on `GtkDrawingArea`; HiDPI via `scale_factor()`
+- Dark theme: bg `#1a1a2e`, alive `#4CAF50`, dead `#0f0f23`, borders `#16213e`
+- Menu bar: File · Game · View · Help
+- `ctx->size` = real board size; `ctx->cur_rows/cols` = display size
+- Resize recalculates rows/cols from `GtkDrawingArea`; triggers `reset_board()` + `last_key = 'R'`
 
-### Bordi avvolgenti
+## Rules
 
-La griglia è **toroidale**: i bordi si avvolgono su se stessi.
-Un pattern che esce da un lato rientra dal lato opposto (come su un nastro di Moebius).
-Questo permette ai glider e ad altri pattern di viaggiare indefinitamente.
+Each cell is **alive** or **dead**. At each generation:
 
-## Licenza
+- Alive with **< 2** alive neighbours → dies (loneliness)
+- Alive with **2–3** alive neighbours → survives
+- Alive with **> 3** alive neighbours → dies (overcrowding)
+- Dead with **exactly 3** alive neighbours → becomes alive (reproduction)
+
+The grid is **toroidal** — edges wrap around, so patterns travel indefinitely.
+
+## License
 
 MIT
